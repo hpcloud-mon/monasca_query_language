@@ -143,7 +143,7 @@ class BooleanVectorRange(object):
 
 
 class BinnedRange(object):
-    supported_functions = {'avg', 'max', 'min', 'count', 'sum'}
+    supported_functions = {'avg', 'max', 'min', 'count', 'sum', 'rate'}
 
     def __init__(self, definition, bins, data):
         self.definition = definition
