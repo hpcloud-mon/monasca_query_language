@@ -30,13 +30,16 @@ Metric definitions usually also contain dimensions, which can be selected alongs
 * ```cpu.idle_perc{hostname=test_host_01}```
 * ```net.in_bytes_sec{hostname=juniper-01,device=eth0}```
 
-Dimensions support the following comparisons  ```=, !=, =~, !~```, ```~``` corresponds to a regular expression comparison.
+Dimensions support the following comparisons  ```=, !=, =~, !~```, where ```~``` corresponds to a regular expression comparison.
 * ```net.out_bytes_sec{device!=eth0}``` would find metrics for every device other than ```eth0```
 * ```memory.used{hostname=~/juniper/``` will find every metric where the hostname include ```juniper```
 
 The metric name can be referenced inside the dimensions with ```__name__```, which will allow the same comparisons as stated above
 * ```{__name__=net.in_bytes_sec,hostname=juniper-01,device=eth0}```
 * ```{__name__=~/^net/,hostname=~/juniper/``` will match any metric starting with ```net``` with ```juniper``` in the hostname
+
+Additionally, the metric name may be excluded with a dimensions selection.
+* ```{hostname=juniper-01}``` will return all metrics collected from the host ```juniper-01```
 
 Each of these will return the latest value (within the last five minutes) of the specified series. If the selection corresponds to multiple series, a vector of the results will be returned instead. The general format is as follows:
 * ```<metric_name>{<dimension_key><comparison_operator><dimension_value>,...}```
