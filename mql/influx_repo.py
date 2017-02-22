@@ -12,6 +12,16 @@ influxdb_client = client.InfluxDBClient(
     "mon")
 
 
+
+functions_for_repo = {
+    'avg': 'mean',
+    'max': 'max',
+    'min': 'min',
+    'count': 'count',
+    'sum': 'sum',
+    'rate': 'derivative'
+}
+
 # class Range(object):
 #     def __init__(self, name, dimensions, values):
 #         self.name = name
@@ -23,6 +33,12 @@ influxdb_client = client.InfluxDBClient(
 #     def __init__(self):
 #         pass
 
+
+def get_function(function):
+    if function in functions_for_repo:
+        return functions_for_repo[function]
+    else:
+        return None
 
 def _double_quote(string):
     return '"' + string + '"'

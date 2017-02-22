@@ -4,6 +4,8 @@ import utils
 
 
 class VectorRange(object):
+    supported_functions = {'avg', 'min', 'max', 'count', 'sum', 'rate'}
+
     def __init__(self, data):
         self.data = data
 
@@ -97,6 +99,15 @@ class VectorRange(object):
     def __lt__(self, other):
         return self._basic_comparison('lt', other)
 
+    def apply_function(self, function, extra_args=None):
+        new_data = []
+        for data in self.data:
+            if not isinstance(data, (int, float)):
+                new_data.append(data.apply_function(function, extra_args))
+            else:
+                new_data.append(utils.apply_function_to_scalar(data, function, extra_args))
+        return VectorRange(new_data)
+
     def __repr__(self):
         return '\n'.join([str(data) for data in self.data])
 
@@ -132,6 +143,8 @@ class BooleanVectorRange(object):
 
 
 class BinnedRange(object):
+    supported_functions = {'avg', 'max', 'min', 'count', 'sum'}
+
     def __init__(self, definition, bins, data):
         self.definition = definition
         self.bins = bins
@@ -250,6 +263,61 @@ class BinnedRange(object):
     def __lt__(self, other):
         return self._basic_comparison('lt', other)
 
+    def apply_function(self, function, extra_args=None):
+        if function not in self.supported_functions:
+            raise Exception('Unsupported input type grouped Range for function {}'.format(function))
+
+        if function == 'avg':
+            print(type(self.bins))
+            data_result = []
+            for data in self.data:
+                data_result.append(numpy.mean(data.f1))
+            result = utils.get_result_array(self.bins, data_result)
+            return Range(self.definition, result)
+
+        if function == 'max':
+            data_result = []
+            for data in self.data:
+                data_result.append(numpy.amax(data.f1))
+            result = utils.get_result_array(self.bins, data_result)
+            return Range(self.definition, result)
+
+        if function == 'min':
+            data_result = []
+            for data in self.data:
+                data_result.append(numpy.amin(data.f1))
+            result = utils.get_result_array(self.bins, data_result)
+            return Range(self.definition, result)
+
+        if function == 'count':
+            data_result = []
+            for data in self.data:
+                data_result.append(len(data.f1))
+            result = utils.get_result_array(self.bins, data_result)
+            return Range(self.definition, result)
+
+        if function == 'sum':
+            data_result = []
+            for data in self.data:
+                data_result.append(numpy.sum(data.f1))
+            result = utils.get_result_array(self.bins, data_result)
+            return Range(self.definition, result)
+
+        if function == 'rate':
+            result = []
+            for i in range(len(self.data)):
+                data = self.data[i]
+                new_times = data.f0[:-1]
+                # if new_times is only one point, it will not be an array
+                # if not isinstance(new_times)
+                new_data = numpy.diff(data) / numpy.diff(data)
+                # discard empty bins
+                if len(new_data) > 0:
+                    result.append(utils.get_result_array(new_times, new_data))
+                else:
+                    del self.bins[i]
+            return BinnedRange(self.definition, self.bins, result)
+
     def __repr__(self):
         output = [self.data[i].tolist() for i in range(len(self.data)) if not isinstance(self.data[i], list)]
         return str(self.definition) + '\n' + '\n'.join(str(bin) for bin in output)
@@ -306,6 +374,8 @@ class BooleanBinnedRange(object):
 
 
 class Range(object):
+    supported_functions = {'avg', 'max', 'min', 'count', 'sum', 'rate'}
+
     def __init__(self, definition, data):
         self.definition = definition
         self.data = data
@@ -417,6 +487,41 @@ class Range(object):
 
     def __lt__(self, other):
         return self._basic_comparison('lt', other)
+
+    def apply_function(self, function, extra_args=None):
+        if function not in self.supported_functions:
+            raise Exception('Unsupported input type Range for function {}'.format(function))
+
+        if function == 'avg':
+            data_result = numpy.mean(self.data.f1)
+            result = utils.get_result_array(self.data.f0[:1], data_result)
+            return Range(self.definition, result)
+
+        if function == 'max':
+            data_result = numpy.amax(self.data.f1)
+            result = utils.get_result_array(self.data.f0[:1], data_result)
+            return Range(self.definition, result)
+
+        if function == 'min':
+            data_result = numpy.amin(self.data.f1)
+            result = utils.get_result_array(self.data.f0[:1], data_result)
+            return Range(self.definition, result)
+
+        if function == 'count':
+            data_result = len(self.data.f1)
+            result = utils.get_result_array(self.data.f0[:1], data_result)
+            return Range(self.definition, result)
+
+        if function == 'sum':
+            data_result = numpy.sum(self.data.f1)
+            result = utils.get_result_array(self.data.f0[:1], data_result)
+            return Range(self.definition, result)
+
+        if function == 'rate':
+            new_time = self.data.f0[:-1]
+            new_data = numpy.diff(self.data.f1) / numpy.diff(self.data.f0)
+            result = utils.get_result_array(new_time, new_data)
+            return Range(self.definition, result)
 
     def __repr__(self):
         return str(self.definition) + '\n' + str(self.data.tolist())

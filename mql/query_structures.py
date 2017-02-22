@@ -138,25 +138,29 @@ class MetricSelector(object):
         result = []
         # Change into a binned series if necessary
         if function is None and bucket_size_sec is not None:
-            unix_start = int((start_time - datetime.datetime(1970, 01, 01)).total_seconds() * 1000)
-            unix_end = int((end_time - datetime.datetime(1970, 01, 01)).total_seconds() * 1000)
+            unix_start = int((start_time - datetime.datetime(1970, 1, 1)).total_seconds() * 1000)
+            unix_end = int((end_time - datetime.datetime(1970, 1, 1)).total_seconds() * 1000)
             bins = [i for i in range(unix_start, unix_end, bucket_size_sec * 1000)]
 
             # do not include start time in bin edges
             bins_inner_edges = bins[1:]
-            output = [[] for _ in range(len(bins_inner_edges) + 1)]
-            for range_tuple in influx_result:
-                bin_indexes = numpy.digitize(range_tuple[1].f0, bins_inner_edges)
+            for serie_tuple in influx_result:
+                final_bins = list(bins)
+                bin_data = [[] for _ in range(len(bins_inner_edges) + 1)]
+                final_data = []
+                bin_indexes = numpy.digitize(serie_tuple[1].f0, bins_inner_edges)
 
                 for i in range(len(bin_indexes)):
-                    output[bin_indexes[i]].append((range_tuple[1][i].f0, range_tuple[1][i].f1))
-                for i in range(len(output)):
-                    if output[i]:
-                        output[i] = numpy.rec.array(output[i])
-                result.append(BinnedRange(range_tuple[0], numpy.array(bins), output))
+                    bin_data[bin_indexes[i]].append((serie_tuple[1][i].f0, serie_tuple[1][i].f1))
+                for i in range(len(bin_data)):
+                    if len(bin_data[i]) > 0:
+                        final_data.append(numpy.rec.array(bin_data[i]))
+                    else:
+                        del final_bins[i]
+                result.append(BinnedRange(serie_tuple[0], numpy.array(final_bins), final_data))
         else:
-            for range_tuple in influx_result:
-                result.append(Range(range_tuple[0], range_tuple[1]))
+            for serie_tuple in influx_result:
+                result.append(Range(serie_tuple[0], serie_tuple[1]))
 
         return VectorRange(result)
 
@@ -177,16 +181,6 @@ class FuncStmt(object):
         'sum': 'sum',
         'rate': 'derivative'
     }
-    functions_downsize_return_type = {
-        'avg': numpy.mean,
-        'max': numpy.amax,
-        'min': numpy.amin,
-        'count': len,
-        'sum': numpy.sum,
-    }
-    functions_same_return_type = {
-        'rate': numpy.diff
-    }
 
     def __init__(self, tokens):
         self.args = tokens
@@ -200,9 +194,9 @@ class FuncStmt(object):
 
             # if metric selector try to pass in function
             if isinstance(self.operand, MetricSelector):
-                if self.function in self.functions_for_repo:
-                    result = self.operand.evaluate(
-                        self.functions_for_repo[self.function])
+                repo_function = influx_repo.get_function(self.function)
+                if repo_function is not None:
+                    result = self.operand.evaluate(repo_function)
                     # format data if necessary
                     # bail out here, since there is no more to do
                     return result
@@ -212,74 +206,18 @@ class FuncStmt(object):
             inner_result = self.operand
 
         # if this is not a list, we shouldn't operate on it
-        if not isinstance(inner_result, VectorRange):
-            return inner_result
-
-        outer_result = []
-
-        if self.function in self.functions_downsize_return_type:
-            for item in inner_result.data:
-                if isinstance(item, BinnedRange):
-                    s_result = []
-                    t_result = []
-                    for i in range(len(item.data)):
-                        # drop any empty bins from the results
-                        if not isinstance(item.data[i], list):
-                            s_result.append(self.functions_downsize_return_type[self.function](item.data[i].f1))
-                            t_result.append(item.bins[i])
-
-                    bin_result = utils.get_result_array(t_result, s_result)
-
-                    outer_result.append(Range(item.definition, bin_result))
-
-                elif isinstance(item, Range):
-                    s_result = self.functions_downsize_return_type[self.function](item.data.f1)
-                    t_result = numpy.max(item.data.f0)
-                    range_result = numpy.rec.array([(t_result, s_result)])
-                    outer_result.append(Range(item.definition, range_result))
-
-                elif isinstance(item, (int, float)):
-                    outer_result.append(item)
-
-                else:
-                    raise utils.EvalException('Unknown input type {} for function {}'.format(
-                        type(item), self.function))
-
-        elif self.function in self.functions_same_return_type:
-            for item in inner_result.data:
-                if isinstance(item, BinnedRange):
-                    resulting_bins = []
-                    for i in range(len(item.data)):
-                        # drop any empty bins from the results
-                        if not isinstance(item.data[i], list):
-                            s_result = self.functions_same_return_type[self.function](item.data[i].f1)
-                            t_result = item.data[i].f0[:-1]
-                            bin_result = utils.get_result_array(t_result, s_result)
-                            resulting_bins.append(bin_result)
-
-                    outer_result.append(BinnedRange(item.definition,
-                                                    item.bins,
-                                                    resulting_bins))
-                elif isinstance(item, Range):
-                    s_result = self.functions_same_return_type[self.function](item.data.f1)
-                    t_result = item.data.f0[:-1]
-                    range_result = utils.get_result_array(t_result, s_result)
-                    outer_result.append(Range(item.definition, range_result))
-
-                elif isinstance(item, (int, float)):
-                    outer_result.append(item)
-
-                else:
-                    raise utils.EvalException('Unknown input type {} for function {}'.format(
-                        type(item), self.function))
-
-        return VectorRange(outer_result)
+        if isinstance(inner_result, VectorRange):
+            return inner_result.apply_function(self.function, None)
+        elif isinstance(inner_result, (int, float)):
+            return utils.apply_function_to_scalar(inner_result, self.function, None)
+        else:
+            raise Exception('Unexpected input type {} for functions'.format(type(inner_result)))
 
     def __repr__(self):
         return "FuncStmt(function={},operand={})".format(self.function, self.operand)
 
-    # def __str__(self):
-    #     return ' '.join(str(arg) for arg in self.args)
+    def __str__(self):
+        return ' '.join(str(arg) for arg in self.args)
 
 
 class Expression(object):

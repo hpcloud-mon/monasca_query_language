@@ -44,3 +44,7 @@ def get_result_array(timestamps, values):
     result.f0 = timestamps
     result.f1 = values
     return result
+
+
+def apply_function_to_scalar(scalar, function, extra_args=None):
+    return scalar
