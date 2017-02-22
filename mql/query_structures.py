@@ -215,8 +215,9 @@ class FuncStmt(object):
         if not isinstance(inner_result, VectorRange):
             return inner_result
 
+        outer_result = []
+
         if self.function in self.functions_downsize_return_type:
-            outer_result = []
             for item in inner_result.data:
                 if isinstance(item, BinnedRange):
                     s_result = []
@@ -245,8 +246,7 @@ class FuncStmt(object):
                         type(item), self.function))
 
         elif self.function in self.functions_same_return_type:
-            outer_result = []
-            for item in inner_result:
+            for item in inner_result.data:
                 if isinstance(item, BinnedRange):
                     resulting_bins = []
                     for i in range(len(item.data)):
@@ -272,10 +272,8 @@ class FuncStmt(object):
                 else:
                     raise utils.EvalException('Unknown input type {} for function {}'.format(
                         type(item), self.function))
-        else:
-            raise utils.EvalException('Function not implemented')
 
-        return outer_result
+        return VectorRange(outer_result)
 
     def __repr__(self):
         return "FuncStmt(function={},operand={})".format(self.function, self.operand)

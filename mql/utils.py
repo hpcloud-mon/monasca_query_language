@@ -1,6 +1,10 @@
 import numpy
 
 
+class EvalException(Exception):
+    pass
+
+
 def create_rec_array(rows):
     return numpy.recarray((int(rows)), dtype=[('f0', numpy.uint64), ('f1', numpy.float64)])
 
@@ -40,7 +44,3 @@ def get_result_array(timestamps, values):
     result.f0 = timestamps
     result.f1 = values
     return result
-
-
-class EvalException(Exception):
-    pass
