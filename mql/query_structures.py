@@ -192,6 +192,8 @@ class FuncStmt(object):
         self.args = tokens
         self.function = tokens[0]
         self.operand = tokens[1]
+        # TODO add ability to specify extra arguments
+        # self.extra_args = tokens[2:]
 
     def evaluate(self):
         if hasattr(self.operand, 'evaluate'):
@@ -210,12 +212,12 @@ class FuncStmt(object):
             inner_result = self.operand
 
         # if this is not a list, we shouldn't operate on it
-        if not isinstance(inner_result, list):
+        if not isinstance(inner_result, VectorRange):
             return inner_result
 
         if self.function in self.functions_downsize_return_type:
             outer_result = []
-            for item in inner_result:
+            for item in inner_result.data:
                 if isinstance(item, BinnedRange):
                     s_result = []
                     t_result = []
