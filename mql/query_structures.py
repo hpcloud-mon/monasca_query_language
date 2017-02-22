@@ -4,7 +4,8 @@ import numpy
 import influx_repo
 from data_types import (VectorRange,
                         BinnedRange,
-                        Range)
+                        Range,
+                        BooleanVectorRange)
 import utils
 
 
@@ -206,7 +207,7 @@ class FuncStmt(object):
             inner_result = self.operand
 
         # if this is not a list, we shouldn't operate on it
-        if isinstance(inner_result, VectorRange):
+        if isinstance(inner_result, (VectorRange, BooleanVectorRange)):
             return inner_result.apply_function(self.function, None)
         elif isinstance(inner_result, (int, float)):
             return utils.apply_function_to_scalar(inner_result, self.function, None)

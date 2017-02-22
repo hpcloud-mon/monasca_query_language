@@ -4,8 +4,6 @@ import utils
 
 
 class VectorRange(object):
-    supported_functions = {'avg', 'min', 'max', 'count', 'sum', 'rate'}
-
     def __init__(self, data):
         self.data = data
 
@@ -137,6 +135,15 @@ class BooleanVectorRange(object):
             return BooleanVectorRange(new_data)
         else:
             raise Exception('Not Implemented')
+
+    def apply_function(self, function, extra_args=None):
+        new_data = []
+        for data in self.data:
+            if not isinstance(data, (int, float)):
+                new_data.append(data.apply_function(function, extra_args))
+            else:
+                new_data.append(utils.apply_function_to_scalar(data, function, extra_args))
+        return BooleanVectorRange(new_data)
 
     def __repr__(self):
         return '\n'.join([str(data) for data in self.data])
@@ -327,6 +334,8 @@ class BinnedRange(object):
 
 
 class BooleanBinnedRange(object):
+    supported_functions = {'any', 'all'}
+
     def __init__(self, definition, bins, data):
         self.definition = definition
         self.bins = bins
@@ -367,6 +376,23 @@ class BooleanBinnedRange(object):
             return BooleanBinnedRange(self.definition, self.bins, new_data)
         else:
             raise Exception('Not Implemented')
+
+    def apply_function(self, function, extra_args=None):
+        if function not in self.supported_functions:
+            raise Exception('Unexpected input type grouped boolean range for function {}'.format(function))
+
+        if function == 'any':
+            new_data = []
+            for data in self.data:
+                new_data.append(numpy.any(data.f1))
+            result = utils.get_result_array(self.bins, new_data)
+            return BooleanRange(self.definition, result)
+        if function == 'all':
+            new_data = []
+            for data in self.data:
+                new_data.append(numpy.all(data.f1))
+            result = utils.get_result_array(self.bins, new_data)
+            return BooleanRange(self.definition, result)
 
     def __repr__(self):
         output = [self.data[i].tolist() for i in range(len(self.data)) if not isinstance(self.data[i], list)]
@@ -531,6 +557,8 @@ class Range(object):
 
 
 class BooleanRange(object):
+    supported_functions = {'any', 'all'}
+
     def __init__(self, definition, data):
         self.definition = definition
         self.data = data
@@ -560,6 +588,15 @@ class BooleanRange(object):
             return BooleanRange(self.definition, new_data)
         else:
             raise Exception('Not Implemented')
+
+    def apply_function(self, function, extra_args=None):
+        if function not in self.supported_functions:
+            raise Exception('Unexpected input type boolean range for function {}'.format(function))
+
+        if function == 'any':
+            return numpy.any(self.data.f1)
+        if function == 'all':
+            return numpy.all(self.data.f1)
 
     def __repr__(self):
         return str(self.definition) + '\n' + str(self.data.tolist())
