@@ -90,3 +90,12 @@ Metrics may be compared with simple boolean comparisons ```>=, >, <=, <```. The 
 ### Logical Operations
 The ranges of boolean values may be combined with logical operations ```and, or``` to create a new range.
 * ```cpu.idle_perc > 10 and cpu.idle_perc < 20``` would return ```True``` if the latest data point is between 10 and 20
+
+## Notes
+* Any empty groups in a grouped range (ex. ```cpu.idle_perc [5m over 15m]```) will be discarded. This can have an impact when attempting to combine metrics later
+* Metrics must be in the same time range to perform arithmetic (each pair of points must be within one minute of each other)
+* Any metrics combined via arithmetic will keep only shared elements of the definition and timestamps will be averaged in the result
+* Boolean operations will maintain the definition and timestamps of the left operand
+* Boolean operations require timestamps to be aligned (same requirements as metric arithmetic)
+* Boolean constants are not allowed (i.e. ```net.in_bytes_sec > 100 and True``` is not a valid expression)
+* Logical operations (and/or operations) will maintain the definition and timestamps of the left operand  
