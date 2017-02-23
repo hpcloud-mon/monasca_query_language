@@ -40,6 +40,7 @@ def get_function(function):
     else:
         return None
 
+
 def _double_quote(string):
     return '"' + string + '"'
 

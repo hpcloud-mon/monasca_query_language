@@ -46,5 +46,12 @@ def get_result_array(timestamps, values):
     return result
 
 
+def get_boolean_result_array(timestamps, values):
+    result = create_bool_rec_array(len(timestamps))
+    result.f0 = timestamps
+    result.f1 = values
+    return result
+
+
 def apply_function_to_scalar(scalar, function, extra_args=None):
     return scalar

@@ -78,6 +78,7 @@ offset_selector.setParseAction(OffsetSelector)
 metric_selector = metric + pyparsing.Optional(range_selector) + pyparsing.Optional(offset_selector)
 metric_selector.setParseAction(MetricSelector)
 
+# boolean functions expressed below (for performance reasons)
 func = pyparsing.oneOf("max min avg count sum last rate", caseless=True)
 
 expression = pyparsing.Forward()
@@ -98,23 +99,26 @@ expression << pyparsing.infixNotation(sub_expression,
 
 relational_op = pyparsing.oneOf("< lt <= lte > gt >= gte", caseless=True)
 
-boolean_expression = expression + relational_op + expression
+boolean_expression = (expression + relational_op + expression)
 boolean_expression.setParseAction(BooleanExpression)
+
+# creating a separate rule for boolean functions (instead of folding into func_stmt)
+#  makes the parsing significantly faster (over 10x on average)
+boolean_function = pyparsing.oneOf("any all", caseless=True)
+
+logical_expression = pyparsing.Forward()
+
+boolean_function_stmt = boolean_function + LPAREN + logical_expression + RPAREN
+boolean_function_stmt.setParseAction(FuncStmt)
+
+logical_sub_expression = (boolean_function_stmt | boolean_expression)
 
 logical_and = pyparsing.oneOf("and &&", caseless=True)
 logical_or = pyparsing.oneOf("or ||", caseless=True)
 
-logical_expression = pyparsing.infixNotation(boolean_expression,
+logical_expression << pyparsing.infixNotation(logical_sub_expression,
                                              [(logical_and, 2, pyparsing.opAssoc.LEFT, LogicalExpression),
                                               (logical_or, 2, pyparsing.opAssoc.LEFT, LogicalExpression)])
-
-# creating a separate rule for boolean functions makes the parsing significantly faster
-#  (over 10x on average)
-boolean_functions = pyparsing.oneOf("any all", caseless=True)
-
-boolean_function_stmt = pyparsing.Forward()
-boolean_function_stmt << boolean_functions + LPAREN + logical_expression + RPAREN
-boolean_function_stmt.setParseAction(FuncStmt)
 
 # order matters, put longer first
 grammar = (boolean_function_stmt | logical_expression | expression)
@@ -205,6 +209,7 @@ def main():
 
         # test logical expression functions
         "any(test_metric > 1 and test_metric < 10)",
+        "any(all(test_metric [5m over 15m] > 1))"
     ]
 
     negative_expression_list = [

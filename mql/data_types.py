@@ -385,13 +385,13 @@ class BooleanBinnedRange(object):
             new_data = []
             for data in self.data:
                 new_data.append(numpy.any(data.f1))
-            result = utils.get_result_array(self.bins, new_data)
+            result = utils.get_boolean_result_array(self.bins, new_data)
             return BooleanRange(self.definition, result)
         if function == 'all':
             new_data = []
             for data in self.data:
                 new_data.append(numpy.all(data.f1))
-            result = utils.get_result_array(self.bins, new_data)
+            result = utils.get_boolean_result_array(self.bins, new_data)
             return BooleanRange(self.definition, result)
 
     def __repr__(self):
