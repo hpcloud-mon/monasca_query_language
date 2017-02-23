@@ -226,6 +226,10 @@ def main():
         # test timestamp parsing/validation
         "test_metric offset 2017-01-01",
         "test_metric offset 2017-01-57T01:01:01.001Z",
+
+        # test function inputs
+        "avg(test_metric > 20)",
+        "any(test_metric{hostname=test_host_01})",
     ]
 
     start_time = time.time()

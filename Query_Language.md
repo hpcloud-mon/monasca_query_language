@@ -99,3 +99,5 @@ The ranges of boolean values may be combined with logical operations ```and, or`
 * Boolean operations require timestamps to be aligned (same requirements as metric arithmetic)
 * Boolean constants are not allowed (i.e. ```net.in_bytes_sec > 100 and True``` is not a valid expression)
 * Logical operations (and/or operations) will maintain the definition and timestamps of the left operand  
+* rate calculations reduce the number of data points by 1 and will drop the first timestamp for the final result
+* Aggregations are reported under the start time for their group

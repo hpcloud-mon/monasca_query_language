@@ -150,8 +150,6 @@ class BooleanVectorRange(object):
 
 
 class BinnedRange(object):
-    supported_functions = {'avg', 'max', 'min', 'count', 'sum', 'rate'}
-
     def __init__(self, definition, bins, data):
         self.definition = definition
         self.bins = bins
@@ -271,7 +269,7 @@ class BinnedRange(object):
         return self._basic_comparison('lt', other)
 
     def apply_function(self, function, extra_args=None):
-        if function not in self.supported_functions:
+        if function not in {'avg', 'max', 'min', 'count', 'sum', 'rate'}:
             raise Exception('Unsupported input type grouped Range for function {}'.format(function))
 
         if function == 'avg':
@@ -314,7 +312,7 @@ class BinnedRange(object):
             result = []
             for i in range(len(self.data)):
                 data = self.data[i]
-                new_times = data.f0[:-1]
+                new_times = data.f0[1:]
                 new_data = numpy.diff(data.f1) / numpy.diff(data.f0 / 1000)
                 # discard empty bins
                 if len(new_data) > 0:
@@ -398,22 +396,9 @@ class BooleanBinnedRange(object):
 
 
 class Range(object):
-    supported_functions = {'avg', 'max', 'min', 'count', 'sum', 'rate'}
-
     def __init__(self, definition, data):
         self.definition = definition
         self.data = data
-
-    def _basic_stat_function(self, function):
-        available_functions = {'avg': numpy.mean,
-                               'max': numpy.amax,
-                               'min': numpy.amin,
-                               'count': len,
-                               'sum': numpy.sum}
-        s_result = available_functions[function](self.data.f1)
-        t_result = numpy.max(self.data.f0)
-        range_result = numpy.rec.array([(t_result, s_result)])
-        return Range(self.definition, range_result)
 
     def _basic_math(self, operation, other):
         if isinstance(other, Range):
@@ -513,7 +498,7 @@ class Range(object):
         return self._basic_comparison('lt', other)
 
     def apply_function(self, function, extra_args=None):
-        if function not in self.supported_functions:
+        if function not in {'avg', 'max', 'min', 'count', 'sum', 'rate'}:
             raise Exception('Unsupported input type Range for function {}'.format(function))
 
         if function == 'avg':
@@ -542,7 +527,7 @@ class Range(object):
             return Range(self.definition, result)
 
         if function == 'rate':
-            new_time = self.data.f0[:-1]
+            new_time = self.data.f0[1:]
             new_data = numpy.diff(self.data.f1) / numpy.diff(self.data.f0 / 1000)
             result = utils.get_result_array(new_time, new_data)
             return Range(self.definition, result)
