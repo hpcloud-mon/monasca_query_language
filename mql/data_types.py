@@ -315,7 +315,7 @@ class BinnedRange(object):
             for i in range(len(self.data)):
                 data = self.data[i]
                 new_times = data.f0[:-1]
-                new_data = numpy.diff(data.f1) / numpy.diff(data.f0)
+                new_data = numpy.diff(data.f1) / numpy.diff(data.f0 / 1000)
                 # discard empty bins
                 if len(new_data) > 0:
                     result.append(utils.get_result_array(new_times, new_data))
@@ -543,7 +543,7 @@ class Range(object):
 
         if function == 'rate':
             new_time = self.data.f0[:-1]
-            new_data = numpy.diff(self.data.f1) / numpy.diff(self.data.f0)
+            new_data = numpy.diff(self.data.f1) / numpy.diff(self.data.f0 / 1000)
             result = utils.get_result_array(new_time, new_data)
             return Range(self.definition, result)
 
