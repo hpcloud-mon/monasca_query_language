@@ -315,9 +315,7 @@ class BinnedRange(object):
             for i in range(len(self.data)):
                 data = self.data[i]
                 new_times = data.f0[:-1]
-                # if new_times is only one point, it will not be an array
-                # if not isinstance(new_times)
-                new_data = numpy.diff(data) / numpy.diff(data)
+                new_data = numpy.diff(data.f1) / numpy.diff(data.f0)
                 # discard empty bins
                 if len(new_data) > 0:
                     result.append(utils.get_result_array(new_times, new_data))
