@@ -12,12 +12,7 @@ class Dimension(object):
         return "Dimension(key={},operator='{}',value={})".format(self.key, self.operator, self.value)
 
     def __str__(self):
-        return '{' + ''.join(str(arg) for arg in self.args) + '}'
-
-    def to_dict(self):
-        return {"key": self.key,
-                "operator": self.operator,
-                "value": self.value}
+        return self.__repr__()
 
 
 class MetricSelector(object):
@@ -39,17 +34,20 @@ class MetricSelector(object):
             else:
                 self.dimensions.append(dim)
 
+    def get_filters(self):
+        result = {}
+        for dim in self.dimensions:
+            if dim.key in result and result[key] != dim.value:
+                raise Exception("Duplicate keys specified in single selector '{}' ".format(dim.key))
+            result[dim.key] = dim.value
+        return result
+
     def __repr__(self):
         return "MetricSelector(name={},dimensions={})".format(
             self.name, self.dimensions)
 
-    def to_dict(self):
-        result = [{"key":"__name__", "value": self.name, "operator": "="}]
-        for dim in self.dimensions:
-            result.append({"key": dim.key,
-                           "operator": dim.operator,
-                           "value": dim.value})
-        return result
+    def __str__(self):
+        return self.__repr__()
 
 
 class LogicalExpression(object):
@@ -73,15 +71,99 @@ class LogicalExpression(object):
             result = self.operator
         return result
 
+    def get_filters(self):
+        left_filters = self.left_operand.get_filters()
+        right_filters = self.right_operand.get_filters()
+        for key, value in right_filters:
+            if key in left_filters and left_filters[key] != value:
+                raise Exception("Duplicate keys specified ".format(key))
+            left_filters[key] = value
+        return left_filters
+
     def __repr__(self):
         return "LogicalExpression(left={},operator='{}',right={})".format(self.left_operand, self.operator, self.right_operand)
 
     def __str__(self):
         return self.__repr__()
 
-    def to_dict(self):
-        result = {"left": self.left_operand.to_dict(),
-                  "operator": self.normalized_operator,
-                  "right": self.right_operand.to_dict(),
-                  }
-        return result
+
+class TargetsExpression(object):
+    def __init__(self, tokens):
+        self.args = tokens
+        self.target = tokens[1]
+
+    def get_filters(self):
+        return self.target.get_filters()
+
+    def __repr__(self):
+        return "TargetExpression(target={})".format(self.target)
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class ExcludesExpression(object):
+    def __init__(self, tokens):
+        self.args = tokens
+        self.exclude = tokens[1]
+
+    def get_filters(self):
+        return self.target.get_filters()
+
+    def __repr__(self):
+        return "ExcludesExpression(exclude={})".format(self.exclude)
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class GroupByExpression(object):
+    def __init__(self, tokens):
+        self.args = tokens
+        self.group_keys = tokens[1:]
+
+    def get_filters(self):
+        return self.target.get_filters()
+
+    def __repr__(self):
+        return "GroupByExpression({})".format(self.group_keys)
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class Rule(object):
+    def __init__(self, tokens):
+        self.source = tokens[0]
+        self.target = None
+        self.excludes = None
+        self.group_by = None
+        for token in tokens[1:]:
+            if isinstance(token, TargetsExpression):
+                self.target = token
+            elif isinstance(token, ExcludesExpression):
+                self.excludes = token
+            elif isinstance(token, GroupByExpression):
+                self.group_by = token
+
+    def get_struct(self):
+        result = {}
+        if self.source is not None:
+            if self.target is None:
+                result['matchers'] = self.source.get_filters()
+            else:
+                result['source_match'] = self.source.get_filters()
+        if self.target is not None:
+            result['target_match'] = self.target.get_filters()
+        if self.excludes is not None:
+            result['exclusions'] = self.excludes.get_filters()
+
+        # check how to return group by keys
+        if self.group_by is not None:
+            result['group by'] = self.excludes.get_filters()
+
+    def __repr__(self):
+        return "Rule(source={},target={},excludes={},group_by={})".format(self.source, self.target, self.excludes, self.group_by)
+
+    def __str__(self):
+        return self.__repr__()
