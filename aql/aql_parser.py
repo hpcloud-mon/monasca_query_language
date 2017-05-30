@@ -88,15 +88,15 @@ class MQLParser(object):
 def main():
 
     expression_list = [
-        "metric_name",
-        "metric_name{}",
-        "metric_name{test_key=test_value}",
-        "metric_one and metric_two",
-        "metric_one{one=two} and metric_two{three=four}",
-        "metric_one excluding metric_two",
-        "metric_name group by key1, key2",
-        "metric_one excluding metric_two group by a,b,c",
-        "metric_one targets metric_two excluding metric_three",
+        ("group", "metric_name"),
+        ("group", "metric_name{}"),
+        ("group", "metric_name{test_key=test_value}"),
+        ("group", "metric_one and metric_two"),
+        ("group", "metric_one{one=two} and metric_two{three=four}"),
+        ("group", "metric_one excluding metric_two"),
+        ("group", "metric_name group by key1, key2"),
+        ("group", "metric_one excluding metric_two group by a,b,c"),
+        ("inhibit", "metric_one targets metric_two excluding metric_three"),
     ]
 
     negative_expression_list = [
@@ -106,9 +106,10 @@ def main():
 
     for expr in expression_list:
         print(expr)
-        result = MQLParser(expr).parse()
+        result = MQLParser(expr[1]).parse()
         # uncomment below to show details of parsing
         print(result)
+        print(result[0].get_struct(expr[0]))
         print("Accepted")
         print
 

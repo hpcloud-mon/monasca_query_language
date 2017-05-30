@@ -108,7 +108,7 @@ class ExcludesExpression(object):
         self.exclude = tokens[1]
 
     def get_filters(self):
-        return self.target.get_filters()
+        return self.exclude.get_filters()
 
     def __repr__(self):
         return "ExcludesExpression(exclude={})".format(self.exclude)
@@ -123,7 +123,7 @@ class GroupByExpression(object):
         self.group_keys = tokens[1:]
 
     def get_filters(self):
-        return self.target.get_filters()
+        return self.group_keys
 
     def __repr__(self):
         return "GroupByExpression({})".format(self.group_keys)
@@ -146,21 +146,21 @@ class Rule(object):
             elif isinstance(token, GroupByExpression):
                 self.group_by = token
 
-    def get_struct(self):
+    def get_struct(self, _type):
         result = {}
-        if self.source is not None:
-            if self.target is None:
-                result['matchers'] = self.source.get_filters()
-            else:
-                result['source_match'] = self.source.get_filters()
-        if self.target is not None:
-            result['target_match'] = self.target.get_filters()
-        if self.excludes is not None:
-            result['exclusions'] = self.excludes.get_filters()
-
-        # check how to return group by keys
-        if self.group_by is not None:
-            result['group by'] = self.excludes.get_filters()
+        if _type == "silence":
+            result['matchers'] = self.source.get_filters() if self.source is not None else {}
+        elif _type == "inhibit":
+            result['source_match'] = self.source.get_filters() if self.source is not None else {}
+            result['target_match'] = self.target.get_filters() if self.target is not None else {}
+            result['equal'] = self.group_by.get_filters() if self.group_by is not None else []
+            result['exclusions'] = self.excludes.get_filters() if self.excludes is not None else {}
+        elif _type == "group":
+            result['matchers'] = self.group_by.get_filters() if self.group_by is not None else []
+            result['exclusions'] = self.excludes.get_filters() if self.excludes is not None else {}
+        else:
+            raise Exception("Unknown type for expression")
+        return result
 
     def __repr__(self):
         return "Rule(source={},target={},excludes={},group_by={})".format(self.source, self.target, self.excludes, self.group_by)
