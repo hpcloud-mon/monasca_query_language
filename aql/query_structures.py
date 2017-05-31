@@ -19,7 +19,7 @@ class MetricSelector(object):
     def __init__(self, tokens):
         self.args = tokens
         self.name = None
-        self.dimensions = []
+        self.dimensions = {}
         _dimensions = []
         for token in tokens:
             if isinstance(token, basestring):
@@ -28,19 +28,23 @@ class MetricSelector(object):
                 _dimensions = token
         # remove __name__ from dimension, apply to self.name if not supplied
         for dim in _dimensions:
-            if dim.key == '__name__':
-                if self.name is None:
-                    self.name = dim.value
-            else:
-                self.dimensions.append(dim)
+            self.dimensions[dim.key] = dim.value
+        #     if dim.key == '__name__':
+        #         if self.name is None:
+        #             self.name = dim.value
+        #     else:
+        #         self.dimensions[dim.key] = dim.value
+        if self.name is not None:
+            self.dimensions["__metricName__"] = self.name
 
     def get_filters(self):
-        result = {}
-        for dim in self.dimensions:
-            if dim.key in result and result[key] != dim.value:
-                raise Exception("Duplicate keys specified in single selector '{}' ".format(dim.key))
-            result[dim.key] = dim.value
-        return result
+        return self.dimensions
+        # result = {}
+        # for key, value in self.dimensions.items():
+        #     if key in result and result[key] != value:
+        #         raise Exception("Duplicate keys specified in single selector '{}' ".format(key))
+        #     result[key] = value
+        # return result
 
     def __repr__(self):
         return "MetricSelector(name={},dimensions={})".format(
@@ -74,7 +78,7 @@ class LogicalExpression(object):
     def get_filters(self):
         left_filters = self.left_operand.get_filters()
         right_filters = self.right_operand.get_filters()
-        for key, value in right_filters:
+        for key, value in right_filters.items():
             if key in left_filters and left_filters[key] != value:
                 raise Exception("Duplicate keys specified ".format(key))
             left_filters[key] = value
@@ -82,6 +86,21 @@ class LogicalExpression(object):
 
     def __repr__(self):
         return "LogicalExpression(left={},operator='{}',right={})".format(self.left_operand, self.operator, self.right_operand)
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class SourceExpression(object):
+    def __init__(self, tokens):
+        self.args = tokens
+        self.source = tokens[1]
+
+    def get_filters(self):
+        return self.source.get_filters()
+
+    def __repr__(self):
+        return "SourceExpression(source={})".format(self.source)
 
     def __str__(self):
         return self.__repr__()
@@ -134,12 +153,14 @@ class GroupByExpression(object):
 
 class Rule(object):
     def __init__(self, tokens):
-        self.source = tokens[0]
+        self.source = None
         self.target = None
         self.excludes = None
         self.group_by = None
-        for token in tokens[1:]:
-            if isinstance(token, TargetsExpression):
+        for token in tokens:
+            if isinstance(token, SourceExpression):
+                self.source = token
+            elif isinstance(token, TargetsExpression):
                 self.target = token
             elif isinstance(token, ExcludesExpression):
                 self.excludes = token
@@ -149,7 +170,9 @@ class Rule(object):
     def get_struct(self, _type):
         result = {}
         if _type == "silence":
-            result['matchers'] = self.source.get_filters() if self.source is not None else {}
+            result['matchers'] = self.target.get_filters() if self.target is not None else {}
+            if any([self.source, self.group_by, self.excludes]):
+                raise Exception("Silence rule contains unexpected elements")
         elif _type == "inhibit":
             result['source_match'] = self.source.get_filters() if self.source is not None else {}
             result['target_match'] = self.target.get_filters() if self.target is not None else {}
@@ -158,6 +181,8 @@ class Rule(object):
         elif _type == "group":
             result['matchers'] = self.group_by.get_filters() if self.group_by is not None else []
             result['exclusions'] = self.excludes.get_filters() if self.excludes is not None else {}
+            if any([self.source, self.target]):
+                raise Exception("Group rule contains unexpected elements")
         else:
             raise Exception("Unknown type for expression")
         return result

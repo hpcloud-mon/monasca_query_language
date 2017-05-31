@@ -7,6 +7,7 @@ import pyparsing
 from query_structures import (Dimension,
                               MetricSelector,
                               LogicalExpression,
+                              SourceExpression,
                               TargetsExpression,
                               ExcludesExpression,
                               GroupByExpression,
@@ -53,26 +54,30 @@ metric = (metric_name + pyparsing.Optional(dimension_list) |
           pyparsing.Optional(metric_name) + dimension_list)
 metric.addParseAction(MetricSelector)
 
-logical_and = pyparsing.oneOf("and &&", caseless=True)
-logical_or = pyparsing.oneOf("or ||", caseless=True)
+# logical_and = pyparsing.oneOf("and &&", caseless=True)
+# logical_or = pyparsing.oneOf("or ||", caseless=True)
 
-logical_expression = pyparsing.infixNotation(metric,
-                                             [(logical_and, 2, pyparsing.opAssoc.LEFT, LogicalExpression),])
-                                              # (logical_or, 2, pyparsing.opAssoc.LEFT, LogicalExpression)])
+# logical_expression = pyparsing.infixNotation(metric,
+#                                              [(logical_and, 2, pyparsing.opAssoc.LEFT, LogicalExpression),
+#                                               (logical_or, 2, pyparsing.opAssoc.LEFT, LogicalExpression)])
+
+source = pyparsing.Keyword("source")
+source_expression = source + metric
+source_expression.addParseAction(SourceExpression)
 
 targets = pyparsing.Keyword("targets")
-targets_expression = targets + logical_expression
+targets_expression = targets + metric
 targets_expression.addParseAction(TargetsExpression)
 
 excludes = pyparsing.Keyword("excluding")
-excludes_expression = excludes + logical_expression
+excludes_expression = excludes + metric
 excludes_expression.addParseAction(ExcludesExpression)
 
 group_by = pyparsing.Keyword("group by")
 group_by_expr = group_by + pyparsing.delimitedList(dimension_name)
 group_by_expr.addParseAction(GroupByExpression)
 
-grammar = logical_expression + pyparsing.Optional(targets_expression) + pyparsing.Optional(excludes_expression) + pyparsing.Optional(group_by_expr)
+grammar = pyparsing.Optional(source_expression) + pyparsing.Optional(targets_expression) + pyparsing.Optional(excludes_expression) + pyparsing.Optional(group_by_expr)
 grammar.addParseAction(Rule)
 
 
@@ -88,18 +93,21 @@ class MQLParser(object):
 def main():
 
     expression_list = [
-        ("group", "metric_name"),
-        ("group", "metric_name{}"),
-        ("group", "metric_name{test_key=test_value}"),
-        ("group", "metric_one and metric_two"),
-        ("group", "metric_one{one=two} and metric_two{three=four}"),
-        ("group", "metric_one excluding metric_two"),
-        ("group", "metric_name group by key1, key2"),
-        ("group", "metric_one excluding metric_two group by a,b,c"),
-        ("inhibit", "metric_one targets metric_two excluding metric_three"),
+        ("silence", "targets metric_name"),
+        ("silence", "targets metric_name{}"),
+        ("silence", "targets metric_name{test_key=test_value}"),
+        # ("silence", "targets metric_one and metric_two"),
+        # ("silence", "targets metric_one{one=two} and metric_two{three=four}"),
+        ("group", "excluding metric_two"),
+        ("group", "group by hostname, service"),
+        ("group", "excluding metric_two group by hostname, service"),
+        # ("group", "targets metric_name group by key1, key2"),
+        # ("group", "targets metric_one excluding metric_two group by a,b,c"),
+        ("inhibit", "source metric_one targets metric_two excluding metric_three"),
     ]
 
     negative_expression_list = [
+        ("silence", "metric_name group by test_key")
     ]
 
     start_time = time.time()
@@ -118,7 +126,7 @@ def main():
     for expr in negative_expression_list:
         try:
             print(expr)
-            result = MQLParser(expr).parse()
+            result = MQLParser(expr[1]).parse()
             assert False, "Expression did not fail"
         except (pyparsing.ParseBaseException, ValueError) as ex:
             # print(ex)
